@@ -100,3 +100,31 @@ class DataProcessService:
         except Exception as e:
             print(f"An error occurred while fetching DataProcess: {e}")
             raise
+
+    async def get_single_data_process(self, data_process_id : str):
+        query = """
+                   SELECT id, user_id, prompt, image_url, ai_generated_text, request_type, token_used, created_at
+                   FROM data_process 
+                   WHERE id = $1
+               """
+        try:
+            process_data = await self.database.fetch_one(query, data_process_id)
+            print(process_data)
+            if process_data is None:
+                print(f"No data process found for ID: {data_process_id}")
+                return None  # Return None if no data is found
+
+            return DataProcess(
+                id=process_data["id"],
+                user_id=process_data["user_id"],
+                prompt=process_data["prompt"],
+                image_url=process_data["image_url"],
+                token_used=process_data["token_used"],
+                ai_generated_text=AiGeneratedText(**json.loads(process_data["ai_generated_text"])),
+                request_type=AiRequestType(process_data["request_type"]),
+                created_at=process_data["created_at"]
+            )
+
+        except Exception as e:
+            print(f"An error occurred while fetching DataProcess: {e}")
+            raise

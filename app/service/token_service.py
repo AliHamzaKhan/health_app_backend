@@ -5,6 +5,7 @@ from typing import Optional
 from uuid import uuid4
 
 from app import Database
+from app.service.data_process_service import DataProcessService
 
 
 class TokenService:
@@ -71,9 +72,12 @@ class TokenService:
         """
         params = [user_id]
 
+
         if data_process_id:
             base_query += " AND data_process_id = $2"
             params.append(data_process_id)
+            data = await  DataProcessService(self.database).get_single_data_process(data_process_id)
+            print(data.request_type)
 
         try:
             tokens = await self.database.fetch(base_query, *params)
