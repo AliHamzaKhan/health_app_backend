@@ -66,18 +66,20 @@ class TokenService:
         Retrieves the used token for a given user and optionally for a specific data process.
         """
         base_query = """
-            SELECT id, user_id, data_process_id, token_used , created_at
-            FROM used_token 
-            WHERE user_id = $1
+            SELECT t.id, t.user_id, t.data_process_id, t.token_used, t.created_at, d.request_type 
+            FROM used_token t
+            INNER JOIN data_process d ON t.data_process_id = d.id
+            WHERE t.user_id = $1
+        """
+
+        join_query = """
+        SELECT from used_token u inner join data_process d on 
         """
         params = [user_id]
 
-
         if data_process_id:
-            base_query += " AND data_process_id = $2"
+            base_query += " AND t.data_process_id = $2"
             params.append(data_process_id)
-            data = await  DataProcessService(self.database).get_single_data_process(data_process_id)
-            print(data.request_type)
 
         try:
             tokens = await self.database.fetch(base_query, *params)

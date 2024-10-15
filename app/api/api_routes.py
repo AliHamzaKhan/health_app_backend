@@ -8,7 +8,7 @@ from app.models.ai_request_enum import AiRequestType
 from app.models.data_process import DataProcessRequest, DataProcess
 from app.models.doctor import DoctorRequest
 from app.models.hospital import HospitalRequest
-from app.models.rating import RatingRequest
+from app.models.rating import RatingRequest, HospitalRatingRequest, DoctorRatingRequest
 from app.models.token_used import TokenUsedRequest
 from app.models.user_profile import UserProfileRequest
 import app.service.initialize_service as service
@@ -256,7 +256,7 @@ async def get_process_data(
 async def get_nearby_hospital(user_id: str = Body(...)):
     try:
         await db.connect()
-        data = service.hospital_service.get_nearby_hospitals(user_id)
+        data = service.hospital_service.get_hospitals(user_id)
         if not data:
             return {
                 'success': True,
@@ -300,36 +300,14 @@ async def add_hospital(hospital: HospitalRequest):
     finally:
         await db.close()
 
-
-@router.post("/add_hospital_rating")
-async def add_hospital_rating(hospital_rating: RatingRequest):
+@router.get("/get_hospitals_value")
+async def get_hospitals_value():
     try:
         await db.connect()
-        await service.hospital_service.add_hospital_rating(hospital_rating)
+        data = await service.hospital_service.get_hospital_values()
         return {
             'success': True,
-            'data': {hospital_rating},
-            'message': 'Successful'
-        }
-    except Exception as e:
-        print(f"Error occurred: {e}")
-        return {
-            'success': False,
-            'data': {},
-            'message': 'error'
-        }
-    finally:
-        await db.close()
-
-
-@router.post("/get_hospital_rating")
-async def get_hospital_rating(hospital_id: str = Body(...)):
-    try:
-        await db.connect()
-        ratings = await service.hospital_service.get_hospital_rating(hospital_id)
-        return {
-            'success': True,
-            'data': {'ratings': ratings},
+            'data': {'hospitals' : data},
             'message': 'Successful'
         }
     except Exception as e:
@@ -419,6 +397,33 @@ async def get_doctors_in_hospital(hospital_id: str):
         await db.close()
 
 
+@router.post("/find_doctors")
+async def find_doctors(speciality: str = Body(...), user_id : str =Body(...)):
+    try:
+        await db.connect()
+        data = await service.doctor_service.find_doctors(speciality)
+        if not data:
+            return {
+                'success': True,
+                'data': {},
+                'message': 'Successful'
+            }
+        return {
+            'success': True,
+            'data': {'doctors': data},
+            'message': 'Successful'
+        }
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return {
+            'success': False,
+            'data': {},
+            'message': 'error'
+        }
+
+    finally:
+        await db.close()
+
 @router.post("/add_used_token")
 async def add_used_token(token: TokenUsedRequest):
     try:
@@ -465,5 +470,115 @@ async def get_used_token(token_request: UsedTokenRequestPayload):
             'message': 'error'
         }
 
+    finally:
+        await db.close()
+
+@router.get("/get_all_medical_speciality")
+async def get_all_medical_speciality():
+    try:
+        await db.connect()
+        data = await service.medical_speciality_service.get_all_medical_specialities()
+        if not data:
+            return {
+                'success': True,
+                'data': {},
+                'message': 'Successful'
+            }
+        return {
+            'success': True,
+            'data': {'medical': data},
+            'message': 'Successful'
+        }
+
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return {
+            'success': False,
+            'data': {},
+            'message': 'error'
+        }
+
+    finally:
+        await db.close()
+
+
+@router.post("/add_hospital_rating")
+async def add_hospital_rating(hospital_rating: HospitalRatingRequest):
+    try:
+        await db.connect()
+        await service.rating_service.add_hospital_rating(hospital_rating)
+        return {
+            'success': True,
+            'data': {hospital_rating},
+            'message': 'Successful'
+        }
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return {
+            'success': False,
+            'data': {},
+            'message': 'error'
+        }
+    finally:
+        await db.close()
+
+
+@router.post("/get_hospital_rating")
+async def get_hospital_rating(hospital_id: str = Body(...)):
+    try:
+        await db.connect()
+        ratings = await service.rating_service.get_hospital_ratings(hospital_id)
+        return {
+            'success': True,
+            'data': {'ratings': ratings},
+            'message': 'Successful'
+        }
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return {
+            'success': False,
+            'data': {},
+            'message': 'error'
+        }
+    finally:
+        await db.close()
+
+@router.post("/add_doctor_rating")
+async def add_hospital_rating(doctor_rating: DoctorRatingRequest):
+    try:
+        await db.connect()
+        await service.rating_service.add_doctor_rating(doctor_rating)
+        return {
+            'success': True,
+            'data': {doctor_rating},
+            'message': 'Successful'
+        }
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return {
+            'success': False,
+            'data': {},
+            'message': 'error'
+        }
+    finally:
+        await db.close()
+
+@router.post("/get_doctor_rating")
+async def get_hospital_rating(doctor_id: str = Body(...)):
+    try:
+        await db.connect()
+        ratings = await service.rating_service.get_doctor_ratings(doctor_id)
+        return {
+            'success': True,
+            'data': {'ratings': ratings},
+            'message': 'Successful'
+        }
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return {
+            'success': False,
+            'data': {},
+            'message': 'error'
+        }
     finally:
         await db.close()

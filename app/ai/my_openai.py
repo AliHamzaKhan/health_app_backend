@@ -8,13 +8,17 @@ from PIL import Image
 import openai
 from app.constant.prompts import Prompts
 from app.constant.utils import parse_gemini_response
-from app.keys.my_keys import OPENAI_API_KEY
 from app.models.ai_request_enum import AiRequestType
 from app.models.data_process import AiGeneratedText
+import os
+from dotenv import load_dotenv
 
+
+load_dotenv()
 
 class MyOpenAI:
     def __init__(self):
+        OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
         self.api_key = OPENAI_API_KEY
         self.model_name = "gpt-3.5-turbo"
 

@@ -15,11 +15,10 @@ class Doctor(BaseModel):
     gender: str
     address: str
     hospitals: List[str]
-    specialization: Optional[str] = None
-    experience: Optional[str] = None
+    specialization: List[str]
+    experience: str
     image: Optional[str] = None
     availability: Optional[str] = None
-    rating: List[Rating]
 
 
 class DoctorRequest(BaseModel):
@@ -31,8 +30,8 @@ class DoctorRequest(BaseModel):
     gender: str
     address: str
     hospitals: List[str]
-    specialization: Optional[str] = None
-    experience: Optional[int] = None
+    specialization: List[str]
+    experience: str
     image: Optional[str] = None
     availability: Optional[str] = None
 

@@ -1,6 +1,5 @@
 from typing import Optional, List
 from pydantic import BaseModel
-from app.models.rating import Rating
 
 
 class Hospital(BaseModel):
@@ -12,7 +11,6 @@ class Hospital(BaseModel):
     website: Optional[str] = None
     type: Optional[str] = None
     departments: Optional[List[str]] = None
-    rating: List[Rating]
     latlng: Optional[str] = None
     img: Optional[str] = None
     staff_count: Optional[int] = None
@@ -28,7 +26,6 @@ class HospitalRequest(BaseModel):
     website: Optional[str] = None
     type: Optional[str] = None
     departments: Optional[List[str]] = None
-    rating: List[Rating]
     latlng: Optional[str] = None
     img: Optional[str] = None
     staff_count: Optional[int] = None
