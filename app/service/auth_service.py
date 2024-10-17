@@ -121,6 +121,17 @@ class AuthService:
             'user_type': '',
         }
 
+    async def get_user_by_id(self, user_id: int):
+        search_query = """
+               SELECT * FROM users where id = $1
+               """
+
+        user = await self.database.fetchrow(search_query, user_id)
+        if user:
+            return user
+        else:
+            return None
+
     async def get_user_types(self):
         get_query = "SELECT user_type_id, user_type_name FROM user_types;"
         data = await self.database.fetch(get_query)
@@ -140,3 +151,5 @@ class AuthService:
 
         # Return a list of dictionaries for each record in data
         return [dict(record) for record in data]
+
+

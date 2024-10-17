@@ -112,3 +112,26 @@ class TokenService:
         except Exception as e:
             logging.error(f"An error occurred while fetching the used tokens: {e}")
             raise e
+
+    async def update_user_ai_tokens(self, user_id: str, token : int):
+        update_query = """
+            UPDATE users
+            SET ai_tokens = ai_tokens - $1
+            WHERE id = $2
+            RETURNING *;  -- This will return the updated row
+            """
+
+        try:
+            updated_row = await self.database.fetchrow(update_query, token, user_id)
+
+            if updated_row:
+                return updated_row  # Return the updated user information
+            else:
+                return None
+
+        except Exception as e:
+            logging.error(f"An error occurred while update the tokens: {e}")
+            raise e
+
+
+

@@ -13,8 +13,8 @@ load_dotenv()
 
 
 database_url = os.environ.get('DATABASE_URL')
-print('database_url', database_url)
-print(type(database_url))
+# print('database_url', database_url)
+# print(type(database_url))
 
 db = Database(database_url)
 auth_service = AuthService(db)

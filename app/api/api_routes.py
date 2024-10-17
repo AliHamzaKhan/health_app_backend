@@ -177,43 +177,63 @@ async def process_data(
         image: UploadFile = File(...)
 ):
     try:
-        open_img = Image.open(image.file)
-        img = open_img.convert('RGB')
-
-        gemini = MyGemini()
-        ai_generated_response, token_used = gemini.generate_ai(AiRequestType.ECG_Report, img)
-
-        prompt = Prompts(ai_request_type)
-
-        base_64_img = await  convert_image_to_base64(image)
-        data_process = DataProcessRequest(
-            user_id=userId,
-            prompt=prompt.get_instructions(),
-            image_url=base_64_img,
-            ai_generated_text=ai_generated_response,
-            request_type=ai_request_type,
-            token_used=token_used
-        )
-
         await db.connect()
-        process_id = await service.data_process_service.save_data_process(data_process=data_process)
-        await service.token_service.save_used_token(token_used, userId, process_id)
+        user = await service.auth_service.get_user_by_id(user_id=userId)
 
-        payload_model = DataProcess(
-            id=process_id,
-            user_id=userId,
-            prompt=prompt.get_instructions(),
-            image_url=base_64_img,
-            ai_generated_text=ai_generated_response,
-            request_type=ai_request_type,
-            token_used=token_used,
-            created_at = datetime.utcnow()
-        )
-        return {
-            'success': True,
-            'data': {'data_process': payload_model},
-            'message': 'Successful'
-        }
+        if user is None:
+            print('ai_tokens', 'not found')
+            return {
+                'success': False,
+                'data': {},
+                'message': 'error'
+            }
+        else:
+            ai_tokens = user.get('ai_tokens')
+            if ai_tokens < 100:
+                return {
+                    'success': False,
+                    'data': {},
+                    'message': 'insufficient ai_tokens'
+                }
+            else:
+                print('ai_tokens', ai_tokens)
+
+                open_img = Image.open(image.file)
+                img = open_img.convert('RGB')
+
+                gemini = MyGemini()
+                ai_generated_response, token_used = gemini.generate_ai(ai_request_type, img)
+                prompt = Prompts(ai_request_type)
+
+                base_64_img = await  convert_image_to_base64(image)
+                data_process = DataProcessRequest(
+                    user_id=userId,
+                    prompt=prompt.get_instructions(),
+                    image_url=base_64_img,
+                    ai_generated_text=ai_generated_response,
+                    request_type=ai_request_type,
+                    token_used=token_used
+                )
+
+                await db.connect()
+                process_id = await service.data_process_service.save_data_process(data_process=data_process)
+                await service.token_service.save_used_token(token_used, userId, process_id)
+                await  service.token_service.update_user_ai_tokens(user_id=userId, token=token_used)
+                payload_model = DataProcess(
+                    id=process_id,
+                    user_id=userId,
+                    prompt=prompt.get_instructions(),
+                    image_url=base_64_img,
+                    ai_generated_text=ai_generated_response,
+                    request_type=ai_request_type,
+                    token_used=token_used,
+                    created_at=datetime.utcnow()
+                )
+                return {
+                    'success': True,
+                    'data': {'data_process': payload_model},
+                    'message': 'Successful'
+                }
 
     except Exception as e:
         print(f"Error occurred while process_data: {e}")
@@ -305,6 +325,7 @@ async def add_hospital(hospital: HospitalRequest):
     finally:
         await db.close()
 
+
 @router.get("/get_hospitals_value")
 async def get_hospitals_value():
     try:
@@ -312,7 +333,7 @@ async def get_hospitals_value():
         data = await service.hospital_service.get_hospital_values()
         return {
             'success': True,
-            'data': {'hospitals' : data},
+            'data': {'hospitals': data},
             'message': 'Successful'
         }
     except Exception as e:
@@ -403,7 +424,7 @@ async def get_doctors_in_hospital(hospital_id: str):
 
 
 @router.post("/find_doctors")
-async def find_doctors(speciality: str = Body(...), user_id : str =Body(...)):
+async def find_doctors(speciality: str = Body(...), user_id: str = Body(...)):
     try:
         await db.connect()
         data = await service.doctor_service.find_doctors(speciality)
@@ -428,6 +449,7 @@ async def find_doctors(speciality: str = Body(...), user_id : str =Body(...)):
 
     finally:
         await db.close()
+
 
 @router.post("/add_used_token")
 async def add_used_token(token: TokenUsedRequest):
@@ -477,6 +499,7 @@ async def get_used_token(token_request: UsedTokenRequestPayload):
 
     finally:
         await db.close()
+
 
 @router.get("/get_all_medical_speciality")
 async def get_all_medical_speciality():
@@ -548,6 +571,7 @@ async def get_hospital_rating(hospital_id: str = Body(...)):
     finally:
         await db.close()
 
+
 @router.post("/add_doctor_rating")
 async def add_hospital_rating(doctor_rating: DoctorRatingRequest):
     try:
@@ -567,6 +591,7 @@ async def add_hospital_rating(doctor_rating: DoctorRatingRequest):
         }
     finally:
         await db.close()
+
 
 @router.post("/get_doctor_rating")
 async def get_hospital_rating(doctor_id: str = Body(...)):
