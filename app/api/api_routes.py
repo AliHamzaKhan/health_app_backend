@@ -31,7 +31,12 @@ def read_root():
 async def login(login_model: LoginModel):
     try:
         await db.connect()
-        data = await service.auth_service.login(login_model.user_type_id, login_model.phone_number, login_model.email)
+        data = await service.auth_service.login(
+            user_type_id=login_model.user_type_id,
+            phone_number=login_model.phone_number,
+            email=login_model.email,
+            fcm_token=login_model.fcm_token,
+        )
         print(type(data))
         if not data:
             return {

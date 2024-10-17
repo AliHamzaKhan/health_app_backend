@@ -1,4 +1,5 @@
 import logging
+import os
 import uuid
 from typing import Optional, Dict
 
@@ -12,12 +13,16 @@ class AuthService:
         self.database = database
 
     async def login(self, user_type_id: Optional[int] = None, phone_number: Optional[str] = None,
-                    email: Optional[str] = None):
+                    email: Optional[str] = None, fcm_token: Optional[str] = None):
         """
         Authenticates a user by either phone number or email.
         If the user exists, return user ID and token.
         If the user does not exist, create a new user, generate a token, and return the data.
         """
+
+
+        new_user_token = int(os.environ.get('NEW_USER_TOKENS'))
+
         if not phone_number and not email:
             raise ValueError("Either phone number or email must be provided.")
 
@@ -27,10 +32,13 @@ class AuthService:
             id VARCHAR(36) PRIMARY KEY,
             phone_no VARCHAR(15),
             email VARCHAR(255),
+            ai_tokens INTEGER,
+            user_type_id INTEGER,
             token VARCHAR(255),
-            user_type_id INTEGER
+            fcm_token VARCHAR(255)  
         )
         """
+
         try:
             await self.database.execute(create_table_query)
 
@@ -45,14 +53,13 @@ class AuthService:
             if user:
                 # User exists
                 user_id = user['id']
-                token = generate_token(user_id)  # Generate a new token for the existing user
-
+                token = generate_token(user_id)
+                print(type(user))# Generate a new token for the existing user
+                # user['token'] = token
                 print(f"Returning existing user data: user_id={user_id}, token={token}")
                 return {
-                    'user_id': user_id,
-                    'token': token,
-                    'user_type': user_type_id,
-                    'isNew': False  # Indicate that this user is not new
+                    'user' : user,
+                    'isNew' : False
                 }
             else:
                 # User does not exist, create a new user
@@ -64,28 +71,27 @@ class AuthService:
 
                 # Insert new user into the database
                 insert_user_query = """
-                INSERT INTO users (id, phone_no, email, token, user_type_id)
-                VALUES ($1, $2, $3, $4, $5)
-                """
-                await self.database.execute(insert_user_query, user_id, phone_number, email, token, user_type_id)
+                    INSERT INTO users (id, phone_no, email, ai_tokens, user_type_id, token, fcm_token)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    """
+                await self.database.execute(
+                    insert_user_query, user_id, phone_number, email, new_user_token, user_type_id, token, fcm_token
+                )
 
-                print(f"Returning new user data: user_id={user_id}, token={token}, user_type={user_type_id}")
+                print(
+                    f"Returning new user data: user_id={user_id}, token={token}, user_type={user_type_id}, new_user_token={new_user_token}")
                 return {
-                    'user_id': user_id,
-                    'token': token,
-                    'user_type': user_type_id,  # Return the new user type ID
-                    'isNew': True  # Indicate that this user is new
+                    'user': user,
+                    'isNew': True
                 }
 
         except Exception as e:
             logging.error(f"An error occurred during login/signup: {e}")
             raise RuntimeError("An error occurred. Please try again later.") from e
 
-
-    async def get_user(self,phone_number: Optional[str] = None,email: Optional[str] = None):
+    async def get_user(self, phone_number: Optional[str] = None, email: Optional[str] = None):
         if not phone_number and not email:
             raise ValueError("Either phone number or email must be provided.")
-
 
         search_query = """
         SELECT * FROM users where phone_no = COALESCE($1, phone_no) OR email = COALESCE($2, email)

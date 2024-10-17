@@ -6,6 +6,7 @@ class Database:
         self.database_url = database_url
         self.connection = None
 
+
     async def connect(self):
         """Connect to the PostgreSQL database."""
         try:
