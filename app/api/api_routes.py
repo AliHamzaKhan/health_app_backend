@@ -612,3 +612,26 @@ async def get_hospital_rating(doctor_id: str = Body(...)):
         }
     finally:
         await db.close()
+
+
+@router.post("/delete_account")
+async def delete_account(user_id : str = Body(...)):
+    try:
+        await db.connect()
+        return {
+            'success': True,
+            'data': {
+                'result' : 'your data will be deleted within 90 days'
+            },
+            'message': 'Successful'
+        }
+
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return {
+            'success': False,
+            'data': {},
+            'message': 'error'
+        }
+    finally:
+        await db.close()
