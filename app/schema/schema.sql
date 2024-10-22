@@ -1,0 +1,17 @@
+-- create_profile_table = CREATE TABLE IF NOT EXISTS profiles (
+--             id VARCHAR(250),
+--             first_name VARCHAR(50),
+--             last_name VARCHAR(50),
+--             email VARCHAR(100) UNIQUE,
+--             phone_no VARCHAR(15),
+--             dob VARCHAR(50),
+--             country VARCHAR(50),
+--             city VARCHAR(50),
+--             gender CHAR(10),
+--             profile_image TEXT,
+--             is_verified BOOLEAN,
+--             package_id INT,
+--             usage FLOAT,
+--             user_type_id INT,
+--             token VARCHAR(250)
+--         );

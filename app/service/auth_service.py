@@ -1,10 +1,13 @@
 import logging
 import os
 import uuid
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 
 from app import Database
 from app.api.tokens import generate_token
+from app.models.user_profile import UserProfile
+from app.schema.app_schemas import CREATE_USER_SCHEMA, CHECK_USER_SCHEMA, INSERT_USER_SCHEMA, UPDATE_USER_TOKEN_SCHEMA
+from app.service.profile_service import ProfileService
 
 
 class AuthService:
@@ -12,74 +15,49 @@ class AuthService:
     def __init__(self, database: Database):
         self.database = database
 
-    async def login(self, user_type_id: Optional[int] = None, phone_number: Optional[str] = None,
-                    email: Optional[str] = None, fcm_token: Optional[str] = None):
-        """
-        Authenticates a user by either phone number or email.
-        If the user exists, return user ID and token.
-        If the user does not exist, create a new user, generate a token, and return the data.
-        """
-
-
+    async def login(self, email: Optional[str], phone_no: Optional[str], user_type_id: Optional[int],fcm_token: Optional[str]):
         new_user_token = int(os.environ.get('NEW_USER_TOKENS'))
-
-        if not phone_number and not email:
-            raise ValueError("Either phone number or email must be provided.")
-
-        # Ensure the 'users' table exists
-        create_table_query = """
-        CREATE TABLE IF NOT EXISTS users (
-            id VARCHAR(36) PRIMARY KEY,
-            phone_no VARCHAR(15),
-            email VARCHAR(255),
-            ai_tokens INTEGER,
-            user_type_id INTEGER,
-            token VARCHAR(255),
-            fcm_token VARCHAR(255)  
+        if not phone_no and not email: raise ValueError("Either phone number or email must be provided.")
+        profile: UserProfile = UserProfile(
+            id=None,  # Or you can generate this if needed
+            first_name=None,
+            last_name=None,
+            email=email,
+            phone_no=phone_no,
+            dob=None,
+            gender=None,
+            user_type_id=user_type_id,
+            country=None,
+            city=None,
+            is_verified=True,
+            package_id= 7,
+            total_usage= 0.0,
+            profile_image=None,
         )
-        """
-
         try:
-            await self.database.execute(create_table_query)
-
-            check_user_query = """
-            SELECT * FROM users WHERE phone_no = COALESCE($1, phone_no) OR email = COALESCE($2, email)
-            """
-
-            # Fetch user based on phone number or email
-            user = await self.database.fetch_one(check_user_query, phone_number, email)
-
-            print(f"Fetched user: {user}")
+            await self.database.execute(CREATE_USER_SCHEMA)
+            user = await self.database.fetch_one(CHECK_USER_SCHEMA, phone_no, email)
             if user:
-                # User exists
                 user_id = user['id']
                 token = generate_token(user_id)
-                print(type(user))# Generate a new token for the existing user
-                # user['token'] = token
+                await self.update_user_token(user_id, token)
+                user.token = token
+                print(type(user))
                 print(f"Returning existing user data: user_id={user_id}, token={token}")
                 return {
-                    'user' : user,
-                    'isNew' : False
+                    'user': user,
+                    'isNew': False
                 }
             else:
-                # User does not exist, create a new user
-                if user_type_id is None:
-                    raise ValueError("user_type_id must be provided for new users.")
-
-                user_id = str(uuid.uuid4())  # Generate a unique UUID for the user
-                token = generate_token(user_id)  # Generate a token for the new user
-
-                # Insert new user into the database
-                insert_user_query = """
-                    INSERT INTO users (id, phone_no, email, ai_tokens, user_type_id, token, fcm_token)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                    """
-                await self.database.execute(
-                    insert_user_query, user_id, phone_number, email, new_user_token, user_type_id, token, fcm_token
-                )
-
-                print(
-                    f"Returning new user data: user_id={user_id}, token={token}, user_type={user_type_id}, new_user_token={new_user_token}")
+                if user_type_id is None: raise ValueError("user_type_id must be provided for new users.")
+                user_id = str(uuid.uuid4())
+                token = generate_token(user_id)
+                profile.id = user_id
+                print('profile.id', profile.id)
+                await self.database.execute(INSERT_USER_SCHEMA, user_id, phone_no, email, new_user_token, user_type_id, token, fcm_token )
+                user = await self.database.fetch_one(CHECK_USER_SCHEMA, phone_no, email)
+                await ProfileService(self.database).save_user_profile(profile=profile)
+                print(f"Returning new user data: user_id={user_id}, token={token}, user_type={user_type_id}, new_user_token={new_user_token}")
                 return {
                     'user': user,
                     'isNew': True
@@ -89,67 +67,54 @@ class AuthService:
             logging.error(f"An error occurred during login/signup: {e}")
             raise RuntimeError("An error occurred. Please try again later.") from e
 
-    async def get_user(self, phone_number: Optional[str] = None, email: Optional[str] = None):
-        if not phone_number and not email:
-            raise ValueError("Either phone number or email must be provided.")
-
+    async def get_user_by_id(self, user_id: str):
         search_query = """
-        SELECT * FROM users where phone_no = COALESCE($1, phone_no) OR email = COALESCE($2, email)
-        """
-
-        user = await self.database.fetch_one(search_query, phone_number, email)
-        if user:
-            _id = user.get('id')
-            phone_no = user.get('phone_no')
-            email = user.get('email')
-            token = user.get('token')
-            user_type_id = user.get('user_type_id')
-
-            return {
-                'user_id': _id,
-                'phone_no': phone_no,
-                'email': email,
-                'token': token,
-                'user_type': user_type_id,
-            }
-
-        return {
-            'user_id': '',
-            'phone_no': '',
-            'email': '',
-            'token': '',
-            'user_type': '',
-        }
-
-    async def get_user_by_id(self, user_id: int):
-        search_query = """
-               SELECT * FROM users where id = $1
+               SELECT * FROM users WHERE id = $1
                """
 
-        user = await self.database.fetchrow(search_query, user_id)
-        if user:
-            return user
-        else:
+        try:
+            user = await self.database.fetchrow(search_query, user_id)
+            if user:
+                return user
+            else:
+                return None
+        except Exception as e:
+            logging.error(f"Failed to get_user_by_id {user_id}: {e}")
             return None
 
     async def get_user_types(self):
-        get_query = "SELECT user_type_id, user_type_name FROM user_types;"
-        data = await self.database.fetch(get_query)
-        print(f'get_user_types {data}')
-        if not data:
-            return []
 
-        return [{"user_type_id": record["user_type_id"], "user_type_name": record["user_type_name"]} for record in data]
+        get_query = "SELECT user_type_id, user_type_name FROM user_types;"
+        try:
+            data = await self.database.fetch(get_query)
+            print(f'get_user_types {data}')
+            if not data:
+                return []
+            return [{"user_type_id": record["user_type_id"], "user_type_name": record["user_type_name"]} for record in
+                    data]
+        except Exception as e:
+            logging.error(f"Failed to get_user_types: {e}")
+            return []
 
     async def get_packages(self):
-        get_query = "SELECT * FROM packages;"
-        data = await self.database.fetch(get_query)
-        print(f'get_packages {data}')
+        try:
+            get_query = "SELECT * FROM packages;"
+            data = await self.database.fetch(get_query)
+            print(f'get_packages {data}')
 
-        if not data:
+            if not data:
+                return []
+
+            # Return a list of dictionaries for each record in data
+            return [dict(record) for record in data]
+        except Exception as e:
+            logging.error(f"Failed to get get_packages: {e}")
             return []
 
-        # Return a list of dictionaries for each record in data
-        return [dict(record) for record in data]
-
-
+    async def update_user_token(self, user_id: str, token: str):
+        try:
+            await self.database.execute(UPDATE_USER_TOKEN_SCHEMA, token, user_id)
+            print(f"Token updated successfully for user_id: {user_id}")
+        except Exception as e:
+            logging.error(f"Failed to update user token for user_id {user_id}: {e}")
+            raise Exception("Failed to update user token")

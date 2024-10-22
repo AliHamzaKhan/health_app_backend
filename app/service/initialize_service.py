@@ -1,6 +1,7 @@
 from app import Database
 from app.service.auth_service import AuthService
 from app.service.data_process_service import DataProcessService
+from app.service.department_service import DepartmentService
 from app.service.doctor_service import DoctorService
 from app.service.hospital_service import HospitalService
 from app.service.medical_speciality_service import MedicalSpecialityService
@@ -25,3 +26,4 @@ profile_service = ProfileService(db)
 token_service = TokenService(db)
 medical_speciality_service = MedicalSpecialityService(db)
 rating_service = RatingService(db)
+departments_service = DepartmentService(db)

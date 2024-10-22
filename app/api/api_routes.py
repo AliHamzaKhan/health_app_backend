@@ -3,6 +3,7 @@ from typing import Optional
 from PIL import Image
 from fastapi import APIRouter, UploadFile, File, FastAPI, Form, Body, Query
 from app.ai.my_gemini import MyGemini
+from app.api.tokens import decode_token, generate_token
 from app.constant.prompts import Prompts
 from app.models.ai_request_enum import AiRequestType
 from app.models.data_process import DataProcessRequest, DataProcess
@@ -10,10 +11,11 @@ from app.models.doctor import DoctorRequest
 from app.models.hospital import HospitalRequest
 from app.models.rating import RatingRequest, HospitalRatingRequest, DoctorRatingRequest
 from app.models.token_used import TokenUsedRequest
-from app.models.user_profile import UserProfileRequest
+from app.models.user_profile import UserProfileRequest, UserProfile
 import app.service.initialize_service as service
 from app.payload.login_model import LoginModel
 from app.payload.used_token_request import UsedTokenRequestPayload
+from app.service.initialize_service import departments_service
 from app.utils.app_utils import convert_image_to_base64
 
 app = FastAPI()
@@ -33,7 +35,7 @@ async def login(login_model: LoginModel):
         await db.connect()
         data = await service.auth_service.login(
             user_type_id=login_model.user_type_id,
-            phone_number=login_model.phone_number,
+            phone_no=login_model.phone_number,
             email=login_model.email,
             fcm_token=login_model.fcm_token,
         )
@@ -117,11 +119,11 @@ async def get_packages():
         await db.close()
 
 
-@router.get("/get_profile/{id}")
-async def get_profile(id: str):
+@router.get("/get_profile/{user_id}")
+async def get_profile(user_id: str):
     try:
         await db.connect()
-        retrieved_profile = await service.profile_service.get_user_profile(id)
+        retrieved_profile = await service.profile_service.get_user_profile(user_id)
         print("Retrieved Profile:", retrieved_profile)
         if not retrieved_profile:
             return {
@@ -147,11 +149,11 @@ async def get_profile(id: str):
 
 
 @router.post("/save_profile")
-async def save_profile(profile: UserProfileRequest):
+async def save_profile(profile: UserProfile):
     try:
 
         await db.connect()
-        await service.profile_service.save_user_profile(profile)
+        await service.profile_service.save_user_profile(profile = profile)
         print("Profile added or updated successfully!")
 
         return {
@@ -169,6 +171,59 @@ async def save_profile(profile: UserProfileRequest):
     finally:
         await db.close()
 
+
+@router.post('/temp_process_data')
+async def temp_process_data(
+        ai_request_type: AiRequestType = Body(...),
+        image: UploadFile = File(...)
+):
+    try:
+        open_img = Image.open(image.file)
+        img = open_img.convert('RGB')
+
+        gemini = MyGemini()
+        ai_generated_response, token_used = gemini.generate_ai(ai_request_type, img)
+        prompt = Prompts(ai_request_type)
+
+        base_64_img = await  convert_image_to_base64(image)
+        data_process = DataProcessRequest(
+            user_id='userId',
+            prompt=prompt.get_instructions(),
+            image_url=base_64_img,
+            ai_generated_text=ai_generated_response,
+            request_type=ai_request_type,
+            token_used=token_used
+        )
+        #
+        # await db.connect()
+        # process_id = await service.data_process_service.save_data_process(data_process=data_process)
+        # await service.token_service.save_used_token(token_used, userId, process_id)
+        # await  service.token_service.update_user_ai_tokens(user_id=userId, token=token_used)
+        # payload_model = DataProcess(
+        #     id=process_id,
+        #     user_id=userId,
+        #     prompt=prompt.get_instructions(),
+        #     image_url=base_64_img,
+        #     ai_generated_text=ai_generated_response,
+        #     request_type=ai_request_type,
+        #     token_used=token_used,
+        #     created_at=datetime.utcnow()
+        # )
+        return {
+            'success': True,
+            'data': {'data_process': data_process},
+            'message': 'Successful'
+        }
+    except Exception as e:
+        print(f"Error occurred while process_data: {e}")
+        return {
+            'success': False,
+            'data': {},
+            'message': 'error'
+        }
+
+    # finally:
+    #     await db.close()
 
 @router.post("/process_data")
 async def process_data(
@@ -311,7 +366,7 @@ async def add_hospital(hospital: HospitalRequest):
         await service.hospital_service.add_hospital(hospital)
         return {
             'success': True,
-            'data': {hospital},
+            'data': {'hospital' : hospital},
             'message': 'Successful'
         }
 
@@ -633,5 +688,27 @@ async def delete_account(user_id : str = Body(...)):
             'data': {},
             'message': 'error'
         }
+    finally:
+        await db.close()
+
+
+@router.get("/departments")
+async def get_departments():
+    try:
+        await db.connect()
+        departments = await departments_service.get_departments()
+        return {
+            'success': True,
+            'data': {'departments': departments},
+            'message': 'Successful'
+        }
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return {
+            'success': False,
+            'data': {},
+            'message': 'error'
+        }
+
     finally:
         await db.close()

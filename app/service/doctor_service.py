@@ -3,6 +3,8 @@ import uuid
 from typing import Optional
 from app import Database
 from app.models.doctor import DoctorRequest, Doctor
+from app.schema.app_schemas import CREATE_DOCTOR_SCHEMA, INSERT_DOCTOR_SCHEME, FIND_DOCTOR_SPECIALITY_SCHEMA, \
+    FIND_ALL_DOCTOR_SCHEMA, FIND_DOCTOR_BY_ID_SCHEMA, FIND_DOCTOR_IN_HOSPITAL_SCHEMA
 
 
 class DoctorService:
@@ -11,29 +13,6 @@ class DoctorService:
         self.database = database
 
     async def add_doctor(self, request: DoctorRequest):
-
-        create_query = """
-            CREATE TABLE IF NOT EXISTS doctors (
-                id VARCHAR(250) PRIMARY KEY,
-                name VARCHAR(100),
-                email VARCHAR(100),
-                degree VARCHAR(100),
-                age VARCHAR(100),
-                phone_no VARCHAR(100),
-                gender VARCHAR(100),
-                address VARCHAR(100),
-                hospitals VARCHAR(100),
-                specialization VARCHAR(100),
-                experience VARCHAR(100),
-                image VARCHAR(100),
-                availability VARCHAR(100),
-            )
-            """
-        query = """
-           INSERT INTO doctors (id, name, email, degree, age, phone_no, gender, address, hospitals, specialization, 
-                                experience, image, availability)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-           """
         doctor_id = str(uuid.uuid4())
         hospitals_str = ",".join(request.hospitals)
         specialization_str = ",".join(request.specialization)
@@ -53,8 +32,8 @@ class DoctorService:
             request.availability,
         )
         try:
-            await self.database.execute(create_query)
-            await self.database.execute(query, *values)
+            await self.database.execute(CREATE_DOCTOR_SCHEMA)
+            await self.database.execute(INSERT_DOCTOR_SCHEME, *values)
             logging.info(f"Doctor {doctor_id} added successfully.")
         except Exception as e:
             logging.error(f"Failed to add doctor: {e}")
@@ -63,10 +42,11 @@ class DoctorService:
         return {"id": doctor_id}
 
     async def get_doctor(self, doctor_id: str) -> Optional[Doctor]:
-        query = "SELECT * FROM doctors WHERE id = $1"
+        # query =
+        # "SELECT * FROM doctors WHERE id = $1"
 
         try:
-            row = await self.database.fetchrow(query, doctor_id)  # Fetch single row using the doctor ID
+            row = await self.database.fetchrow(FIND_DOCTOR_BY_ID_SCHEMA, doctor_id)  # Fetch single row using the doctor ID
             if row:
                 # Convert hospitals from comma-separated string back to list
                 hospitals_list = row["hospitals"].split(",") if row["hospitals"] else []
@@ -94,14 +74,15 @@ class DoctorService:
             raise e
 
     async def get_doctors_in_hospital(self, hospital_id: str):
-        query = """
-            SELECT * FROM doctors
-            WHERE $1 = ANY(string_to_array(hospitals, ','))
-            """
+        # query =
+        # """
+        #     SELECT * FROM doctors
+        #     WHERE $1 = ANY(string_to_array(hospitals, ','))
+        #     """
 
         try:
             # Fetch all doctors associated with the hospital_id
-            rows = await self.database.fetch(query, hospital_id)
+            rows = await self.database.fetch(FIND_DOCTOR_IN_HOSPITAL_SCHEMA, hospital_id)
 
             # If no doctors are found, return an empty list
             if not rows:
@@ -139,19 +120,21 @@ class DoctorService:
 
     async def find_doctors(self, speciality: Optional[str] = None):
         if not speciality:
-            search_query = """
-                        SELECT * FROM doctors
-                    """
+            search_query = FIND_ALL_DOCTOR_SCHEMA
+            # """
+            #             SELECT * FROM doctors
+            #         """
             params = ()
 
         else:
-            search_query = """
-                   SELECT * FROM doctors 
-                   WHERE EXISTS (
-                       SELECT 1 FROM unnest(string_to_array(specialization, ',')) AS specialization_item
-                       WHERE TRIM(specialization_item) ILIKE TRIM($1)
-                   )
-               """
+            search_query = FIND_DOCTOR_SPECIALITY_SCHEMA
+            # """
+            #        SELECT * FROM doctors
+            #        WHERE EXISTS (
+            #            SELECT 1 FROM unnest(string_to_array(specialization, ',')) AS specialization_item
+            #            WHERE TRIM(specialization_item) ILIKE TRIM($1)
+            #        )
+            #    """
             params = (speciality,)
         try:
             rows = await self.database.fetch(search_query, *params)
