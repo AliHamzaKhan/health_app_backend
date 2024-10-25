@@ -68,6 +68,10 @@ FIND_PROFILE_ID_SCHEMA = """
 SELECT * FROM profiles WHERE id = $1;
 """
 
+UPDATE_PROFILE_PACKAGE_ID_SCHEMA = """
+    UPDATE profiles SET package_id = $1 WHERE id = $2
+"""
+
 CREATE_DATA_PROCESS_SCHEMA = """
 CREATE TABLE IF NOT EXISTS data_process (
                 id VARCHAR(255) PRIMARY KEY,
@@ -197,4 +201,24 @@ select * from departments
 
 INSERT_DEPARTMENTS_SCHEMA = """
 INSERT INTO departments (department_name) VALUES ($1)
+"""
+
+
+CREATE_MEDICAL_SPECIALITIES_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS medical_specialities (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
+    ); 
+"""
+
+INSERT_MEDICAL_SPECIALITIES_SCHEMA = """
+    INSERT INTO medical_specialities (name) VALUES ($1)
+"""
+
+FIND_MEDICAL_SPECIALITIES_SCHEMA = """
+SELECT * FROM medical_specialities
+"""
+
+FIND_MEDICAL_SPECIALITIES_NAME_SCHEMA = """
+SELECT name FROM medical_specialities
 """

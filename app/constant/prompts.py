@@ -1,4 +1,6 @@
 from app.models.ai_request_enum import AiRequestType
+from app.service.initialize_service import medical_speciality_service
+from app.service.medical_specialities_service import MedicalSpecialitiesService
 
 
 # class AiRequestType(Enum):
@@ -8,6 +10,7 @@ from app.models.ai_request_enum import AiRequestType
 #     EEG_Report = "EEG Report"
 
 class Prompts:
+
     def __init__(self, ai_request_type: AiRequestType):
         self.ai_request_type = ai_request_type
         self.str_prompt: str = """
@@ -72,7 +75,6 @@ class Prompts:
         }
         return response_types.get(self.ai_request_type, "Invalid request type.")
 
-
     def get_format_type(self):
         return """
         {
@@ -90,3 +92,14 @@ class Prompts:
         merged_request = f"{prompt}\n\nInstructions: {instructions}\n\nExpected Response Type: {response_type}"
         return merged_request
 
+# todo
+    async def get_specialities(self) -> str:
+        data = ''
+        specialities = await medical_speciality_service.get_medical_specialities_names()
+
+        if specialities:
+            for speciality in specialities:
+                data += speciality['name'] + ', '
+            data = data.rstrip(', ')
+
+        return data

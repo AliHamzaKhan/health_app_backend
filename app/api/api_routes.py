@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from PIL import Image
 from fastapi import APIRouter, UploadFile, File, FastAPI, Form, Body, Query
 from app.ai.my_gemini import MyGemini
@@ -10,11 +10,13 @@ from app.models.data_process import DataProcessRequest, DataProcess
 from app.models.doctor import DoctorRequest
 from app.models.hospital import HospitalRequest
 from app.models.rating import RatingRequest, HospitalRatingRequest, DoctorRatingRequest
+from app.models.specialities_request import SpecialitiesRequest
 from app.models.token_used import TokenUsedRequest
 from app.models.user_profile import UserProfileRequest, UserProfile
 import app.service.initialize_service as service
 from app.payload.login_model import LoginModel
 from app.payload.used_token_request import UsedTokenRequestPayload
+from app.service import medical_specialities_service
 from app.service.initialize_service import departments_service
 from app.utils.app_utils import convert_image_to_base64
 
@@ -187,6 +189,7 @@ async def temp_process_data(
 
         base_64_img = await  convert_image_to_base64(image)
         data_process = DataProcessRequest(
+
             user_id='userId',
             prompt=prompt.get_instructions(),
             image_url=base_64_img,
@@ -259,7 +262,7 @@ async def process_data(
                 gemini = MyGemini()
                 ai_generated_response, token_used = gemini.generate_ai(ai_request_type, img)
                 prompt = Prompts(ai_request_type)
-
+                # print('prompt',prompt.get_merged_prompt())
                 base_64_img = await  convert_image_to_base64(image)
                 data_process = DataProcessRequest(
                     user_id=userId,
@@ -704,6 +707,59 @@ async def get_departments():
         }
     except Exception as e:
         print(f"Error occurred: {e}")
+        return {
+            'success': False,
+            'data': {},
+            'message': 'error'
+        }
+
+    finally:
+        await db.close()
+
+
+@router.get("/medical_specialities")
+async def medical_specialities():
+    try:
+        await db.connect()
+        specialities = await service.medical_speciality_service.get_medical_specialities();
+        if specialities:
+            return {
+                'success': True,
+                'data': {'specialities': specialities},
+                'message': 'Successful'
+            }
+        else:
+            return {
+                'success': True,
+                'data': {},
+                'message': 'Successful'
+            }
+
+    except Exception as e:
+        print(f"Error occurred medical_specialities: {e}")
+        return {
+            'success': False,
+            'data': {},
+            'message': 'error'
+        }
+
+    finally:
+        await db.close()
+
+
+@router.post("/add_medical_specialities")
+async def add_medical_specialities(specialities : SpecialitiesRequest):
+
+    try:
+        await db.connect()
+        await service.medical_speciality_service.add_medical_specialities(specialities.data)
+        return {
+            'success': True,
+            'data': {'specialities': specialities.data},
+            'message': 'Successful'
+        }
+    except Exception as e:
+        print(f"Error occurred add_medical_specialities: {e}")
         return {
             'success': False,
             'data': {},

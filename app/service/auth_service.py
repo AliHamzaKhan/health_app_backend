@@ -1,12 +1,11 @@
 import logging
 import os
 import uuid
-from typing import Optional, Dict, List
-
+from typing import Optional
 from app import Database
 from app.api.tokens import generate_token
 from app.models.user_profile import UserProfile
-from app.schema.app_schemas import CREATE_USER_SCHEMA, CHECK_USER_SCHEMA, INSERT_USER_SCHEMA, UPDATE_USER_TOKEN_SCHEMA
+from app.schema.app_schemas import CREATE_USER_SCHEMA, CHECK_USER_SCHEMA, INSERT_USER_SCHEMA, UPDATE_USER_TOKEN_SCHEMA, UPDATE_PROFILE_PACKAGE_ID_SCHEMA
 from app.service.profile_service import ProfileService
 
 
@@ -118,3 +117,11 @@ class AuthService:
         except Exception as e:
             logging.error(f"Failed to update user token for user_id {user_id}: {e}")
             raise Exception("Failed to update user token")
+
+    async def update_user_package(self, user_id: str, package_id: int):
+        try:
+            await self.database.execute(UPDATE_PROFILE_PACKAGE_ID_SCHEMA, package_id, user_id)
+            print(f"update_user_package updated successfully for package_id : {package_id} , user_id: {user_id}")
+        except Exception as e:
+            logging.error(f"Failed to update user token for package_id : {package_id} , user_id {user_id}: {e}")
+            raise Exception("Failed to update update_user_package")
