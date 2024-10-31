@@ -3,14 +3,8 @@ import textwrap
 from typing import Tuple
 
 # from rich import Console
-from rich.markdown import Markdown
 
 from app.models.data_process import AiGeneratedText
-
-
-def to_markdown(text):
-    text = text.replace("•", "  *")
-    return Markdown(textwrap.indent(text, "> ", predicate=lambda _: True))
 
 
 def parse_gemini_response(response: str) -> Tuple[AiGeneratedText, str]:

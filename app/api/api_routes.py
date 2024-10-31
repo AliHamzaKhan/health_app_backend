@@ -1,22 +1,20 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional
 from PIL import Image
-from fastapi import APIRouter, UploadFile, File, FastAPI, Form, Body, Query
+from fastapi import APIRouter, UploadFile, File, FastAPI, Body
 from app.ai.my_gemini import MyGemini
-from app.api.tokens import decode_token, generate_token
 from app.constant.prompts import Prompts
 from app.models.ai_request_enum import AiRequestType
 from app.models.data_process import DataProcessRequest, DataProcess
 from app.models.doctor import DoctorRequest
 from app.models.hospital import HospitalRequest
-from app.models.rating import RatingRequest, HospitalRatingRequest, DoctorRatingRequest
+from app.models.rating import HospitalRatingRequest, DoctorRatingRequest
 from app.models.specialities_request import SpecialitiesRequest
 from app.models.token_used import TokenUsedRequest
-from app.models.user_profile import UserProfileRequest, UserProfile
+from app.models.user_profile import UserProfile
 import app.service.initialize_service as service
 from app.payload.login_model import LoginModel
 from app.payload.used_token_request import UsedTokenRequestPayload
-from app.service import medical_specialities_service
 from app.service.initialize_service import departments_service
 from app.utils.app_utils import convert_image_to_base64
 
@@ -155,7 +153,7 @@ async def save_profile(profile: UserProfile):
     try:
 
         await db.connect()
-        await service.profile_service.save_user_profile(profile = profile)
+        await service.profile_service.save_user_profile(profile=profile)
         print("Profile added or updated successfully!")
 
         return {
@@ -227,6 +225,7 @@ async def temp_process_data(
 
     # finally:
     #     await db.close()
+
 
 @router.post("/process_data")
 async def process_data(
@@ -369,7 +368,7 @@ async def add_hospital(hospital: HospitalRequest):
         await service.hospital_service.add_hospital(hospital)
         return {
             'success': True,
-            'data': {'hospital' : hospital},
+            'data': {'hospital': hospital},
             'message': 'Successful'
         }
 
@@ -673,13 +672,13 @@ async def get_hospital_rating(doctor_id: str = Body(...)):
 
 
 @router.post("/delete_account")
-async def delete_account(user_id : str = Body(...)):
+async def delete_account(user_id: str = Body(...)):
     try:
         await db.connect()
         return {
             'success': True,
             'data': {
-                'result' : 'your data will be deleted within 90 days'
+                'result': 'your data will be deleted within 90 days'
             },
             'message': 'Successful'
         }
@@ -748,8 +747,7 @@ async def medical_specialities():
 
 
 @router.post("/add_medical_specialities")
-async def add_medical_specialities(specialities : SpecialitiesRequest):
-
+async def add_medical_specialities(specialities: SpecialitiesRequest):
     try:
         await db.connect()
         await service.medical_speciality_service.add_medical_specialities(specialities.data)

@@ -1,4 +1,5 @@
 from app import Database
+from app.enviroment.project_enviroment import ProjectEnvironment, Environment
 from app.service.auth_service import AuthService
 from app.service.data_process_service import DataProcessService
 from app.service.department_service import DepartmentService
@@ -13,8 +14,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-database_url = os.environ.get('DATABASE_URL')
-# print('database_url', database_url)
+# database_url = os.environ.get('DATABASE_URL')
+database_url = ProjectEnvironment(env=Environment.STAGING).db_url()
+print('database_url', database_url)
 
 db = Database(database_url)
 auth_service = AuthService(db)

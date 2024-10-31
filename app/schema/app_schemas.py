@@ -17,6 +17,14 @@ CHECK_USER_SCHEMA = """
  SELECT * FROM users WHERE phone_no = COALESCE($1, phone_no) OR email = COALESCE($2, email)
 """
 
+CHECK_USER_BY_PHONE_SCHEMA = """
+SELECT * FROM users WHERE phone_no = $1
+"""
+
+CHECK_USER_BY_EMAIL_SCHEMA = """
+SELECT * FROM users WHERE email = $1
+"""
+
 INSERT_USER_SCHEMA = """
 INSERT INTO users (id, phone_no, email, ai_tokens, user_type_id, token, fcm_token)
                     VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -31,8 +39,8 @@ CREATE TABLE IF NOT EXISTS profiles (
     id VARCHAR(250) PRIMARY KEY,         -- id can be optional but it's a primary key
     first_name VARCHAR(50),              -- Optional fields can still have a default size in SQL
     last_name VARCHAR(50),
-    email VARCHAR(100) UNIQUE NOT NULL,  -- Email is required and unique
-    phone_no VARCHAR(15) UNIQUE NOT NULL,  -- Phone number is required and unique
+    email VARCHAR(100),
+    phone_no VARCHAR(15),
     dob VARCHAR(50),                     -- Optional date of birth
     country VARCHAR(50),
     city VARCHAR(50),
