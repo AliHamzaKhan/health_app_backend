@@ -32,15 +32,20 @@ class DepartmentService:
             logging.error(f"Failed to get_departments DepartmentService : {e}")
             raise e
 
-    async def set_hospital_department(self, department_ids: List[int], hospital_id: str):
+    async def initialize_table(self):
+        # Create the table once
         create_query = """
-        CREATE TABLE hospital_departments (
-            hospital_id INT REFERENCES hospitals(id) ON DELETE CASCADE,
-            department_id INT REFERENCES departments(id) ON DELETE CASCADE,
+        CREATE TABLE IF NOT EXISTS hospital_departments (
+            hospital_id VARCHAR REFERENCES hospitals(id) ON DELETE CASCADE ON UPDATE CASCADE,
+            department_id INT REFERENCES departments(department_id) ON DELETE CASCADE,
             PRIMARY KEY (hospital_id, department_id)
         );
         """
         await self.database.execute(create_query)
+
+    async def set_hospital_department(self, department_ids: List[int], hospital_id: str):
+        print('hospital_id1:', hospital_id)
+        await self.initialize_table()
         insert_query = """
                 INSERT INTO hospital_departments (hospital_id, department_id) 
                 VALUES ($1, $2)
@@ -57,5 +62,5 @@ class DepartmentService:
                     raise e
 
         except Exception as e:
-            logging.error(f"Failed to add_medical_specialities DepartmentService : {e}")
+            logging.error(f"Failed to set_hospital_department in DepartmentService: {e}")
             raise e

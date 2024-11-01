@@ -30,7 +30,7 @@ class DoctorRequest(BaseModel):
     gender: str
     address: str
     hospitals: List[str]
-    specialization: List[str]
+    specialization: List[int]
     experience: str
     image: Optional[str] = None
     availability: Optional[str] = None

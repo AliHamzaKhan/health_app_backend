@@ -1,6 +1,6 @@
 import logging
 import uuid
-from typing import Optional
+from typing import Optional, List
 from app import Database
 from app.models.doctor import DoctorRequest, Doctor
 from app.schema.app_schemas import CREATE_DOCTOR_SCHEMA, INSERT_DOCTOR_SCHEME, FIND_DOCTOR_SPECIALITY_SCHEMA, \
@@ -14,8 +14,6 @@ class DoctorService:
 
     async def add_doctor(self, request: DoctorRequest):
         doctor_id = str(uuid.uuid4())
-        hospitals_str = ",".join(request.hospitals)
-        specialization_str = ",".join(request.specialization)
         values = (
             doctor_id,
             request.name,
@@ -24,9 +22,7 @@ class DoctorService:
             request.age,
             request.phone_no,
             request.gender,
-            request.address,
-            hospitals_str,  # Comma-separated string
-            specialization_str,  # Comma-separated string
+            request.address, # Comma-separated string
             request.experience,
             request.image,
             request.availability,
@@ -34,6 +30,8 @@ class DoctorService:
         try:
             await self.database.execute(CREATE_DOCTOR_SCHEMA)
             await self.database.execute(INSERT_DOCTOR_SCHEME, *values)
+            await self.add_doctor_in_hospital(doctor_id, request.hospitals)
+            await self.add_doctor_specializations(doctor_id, request.specialization)
             logging.info(f"Doctor {doctor_id} added successfully.")
         except Exception as e:
             logging.error(f"Failed to add doctor: {e}")
@@ -44,31 +42,23 @@ class DoctorService:
     async def get_doctor(self, doctor_id: str) -> Optional[Doctor]:
         # query =
         # "SELECT * FROM doctors WHERE id = $1"
-
+        search_query = """
+        SELECT doctors.*, 
+            COALESCE(ARRAY_AGG(DISTINCT doctor_in_hospitals.hospital_id), ARRAY[]::VARCHAR[]) AS hospitals, 
+            COALESCE(ARRAY_AGG(DISTINCT doctor_specializations.specialization_id), ARRAY[]::INT[]) AS specializations
+            FROM doctors
+            LEFT JOIN doctor_in_hospitals ON doctors.id = doctor_in_hospitals.doctor_id
+            LEFT JOIN doctor_specializations ON doctors.id = doctor_specializations.doctor_id
+            WHERE doctors.id = $1
+            GROUP BY doctors.id;
+        """
         try:
-            row = await self.database.fetchrow(FIND_DOCTOR_BY_ID_SCHEMA, doctor_id)  # Fetch single row using the doctor ID
+            # row = await self.database.fetchrow(FIND_DOCTOR_BY_ID_SCHEMA, doctor_id)  # Fetch single row using the doctor ID
+            row = await self.database.fetchrow(search_query, doctor_id)
             if row:
-                # Convert hospitals from comma-separated string back to list
-                hospitals_list = row["hospitals"].split(",") if row["hospitals"] else []
-                specialization_list = row["specialization"].split(",") if row["specialization"] else []
-
-                # Create and return a Doctor model populated with the retrieved data
-                return Doctor(
-                    id=row["id"],
-                    name=row["name"],
-                    email=row["email"],
-                    degree=row["degree"],
-                    age=row["age"],
-                    phone_no=row["phone_no"],
-                    gender=row["gender"],
-                    address=row["address"],
-                    hospitals=hospitals_list,
-                    specialization=specialization_list,
-                    experience=row.get("experience"),
-                    image=row.get("image"),
-                    availability=row.get("availability"),
-                )
-            return None
+                return row
+            else:
+                return None
         except Exception as e:
             logging.error(f"Failed to fetch doctor: {e}")
             raise e
@@ -79,40 +69,24 @@ class DoctorService:
         #     SELECT * FROM doctors
         #     WHERE $1 = ANY(string_to_array(hospitals, ','))
         #     """
+        search_query = """
+        SELECT doctors.*, 
+        COALESCE(ARRAY_AGG(DISTINCT doctor_in_hospitals.hospital_id), ARRAY[]::VARCHAR[]) AS hospitals,
+        COALESCE(ARRAY_AGG(DISTINCT doctor_specializations.specialization_id), ARRAY[]::INT[]) AS specializations
+        FROM doctors
+        LEFT JOIN doctor_in_hospitals ON doctors.id = doctor_in_hospitals.doctor_id
+        LEFT JOIN doctor_specializations ON doctors.id = doctor_specializations.doctor_id
+        WHERE doctor_in_hospitals.hospital_id = $1
+        GROUP BY doctors.id;
+        """
 
         try:
-            # Fetch all doctors associated with the hospital_id
-            rows = await self.database.fetch(FIND_DOCTOR_IN_HOSPITAL_SCHEMA, hospital_id)
 
-            # If no doctors are found, return an empty list
+            rows = await self.database.fetch(search_query, hospital_id)
             if not rows:
                 return []
-
-            # Process each row and convert hospitals back to a list
-            doctors = []
-            for row in rows:
-                hospitals_list = row["hospitals"].split(",") if row["hospitals"] else []
-                specialization_list = row["specialization"].split(",") if row["specialization"] else []
-
-                # Create a Doctor object for each row
-                doctors.append(Doctor(
-                    id=row["id"],
-                    name=row["name"],
-                    email=row["email"],
-                    degree=row["degree"],
-                    age=row["age"],
-                    phone_no=row["phone_no"],
-                    gender=row["gender"],
-                    address=row["address"],
-                    hospitals=hospitals_list,
-                    specialization=specialization_list,
-                    experience=row.get("experience"),
-                    image=row.get("image"),
-                    availability=row.get("availability"),
-
-                ))
-
-            return doctors
+            else:
+                return rows
 
         except Exception as e:
             logging.error(f"Failed to fetch doctors for hospital {hospital_id}: {e}")
@@ -144,6 +118,56 @@ class DoctorService:
             logging.error(f"Failed to fetch doctors for speciality {speciality}: {e}")
             raise e
 
+    async def add_doctor_specializations(self, doctor_id: str, specialities: List[int]):
+        create_query = """
+            CREATE TABLE IF NOT EXISTS doctor_specializations (
+                doctor_id VARCHAR REFERENCES doctors(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                specialization_id INT REFERENCES medical_specialities(id) ON DELETE CASCADE,
+                PRIMARY KEY (doctor_id, specialization_id)
+            );
+        """
+        try:
+            await self.database.execute(create_query)
+            insert_query = """
+                INSERT INTO doctor_specializations (doctor_id, specialization_id) 
+                VALUES ($1, $2)
+                ON CONFLICT (doctor_id, specialization_id) DO NOTHING;
+            """
 
+            for specialization_id in specialities:
+                try:
+                    await self.database.execute(insert_query, doctor_id, specialization_id)
+                    logging.info(f"Speciality {specialization_id} added for doctor {doctor_id}.")
+                except Exception as e:
+                    logging.error(f"Failed to insert speciality {specialization_id} for doctor {doctor_id}: {e}")
+                    raise e
+        except Exception as e:
+            logging.error(f"Failed to create doctor_specializations table: {e}")
+
+    async def add_doctor_in_hospital(self, doctor_id: str, hospital_id: List[str]):
+        create_query = """
+        CREATE TABLE IF NOT EXISTS doctor_in_hospitals (
+                doctor_id VARCHAR REFERENCES doctors(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                hospital_id VARCHAR REFERENCES hospitals(id) ON DELETE CASCADE,
+                PRIMARY KEY (doctor_id, hospital_id)
+            );
+        """
+        try:
+            await self.database.execute(create_query)
+            insert_query = """
+                INSERT INTO doctor_in_hospitals (doctor_id, hospital_id) 
+                VALUES ($1, $2)
+                ON CONFLICT (doctor_id, hospital_id) DO NOTHING;
+            """
+
+            for hospital in hospital_id:
+                try:
+                    await self.database.execute(insert_query, doctor_id, hospital)
+                    logging.info(f"Hospital {hospital} added for doctor {doctor_id}.")
+                except Exception as e:
+                    logging.error(f"Failed to insert hospital {hospital} for doctor {doctor_id}: {e}")
+                    raise e
+        except Exception as e:
+            logging.error(f"Failed to create doctor_hospitals table: {e}")
 
 

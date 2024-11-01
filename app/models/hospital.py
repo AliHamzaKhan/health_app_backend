@@ -25,7 +25,7 @@ class HospitalRequest(BaseModel):
     email: str
     website: Optional[str] = None
     type: Optional[str] = None
-    departments: Optional[List[str]] = None
+    departments: Optional[List[int]] = None
     latlng: Optional[str] = None
     img: Optional[str] = None
     staff_count: Optional[int] = None

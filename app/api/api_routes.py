@@ -229,13 +229,13 @@ async def temp_process_data(
 
 @router.post("/process_data")
 async def process_data(
-        userId: str = Body(...),
+        user_id: str = Body(...),
         ai_request_type: AiRequestType = Body(...),
         image: UploadFile = File(...)
 ):
     try:
         await db.connect()
-        user = await service.auth_service.get_user_by_id(user_id=userId)
+        user = await service.auth_service.get_user_by_id(user_id=user_id)
 
         if user is None:
             print('ai_tokens', 'not found')
@@ -264,7 +264,7 @@ async def process_data(
                 # print('prompt',prompt.get_merged_prompt())
                 base_64_img = await  convert_image_to_base64(image)
                 data_process = DataProcessRequest(
-                    user_id=userId,
+                    user_id=user_id,
                     prompt=prompt.get_instructions(),
                     image_url=base_64_img,
                     ai_generated_text=ai_generated_response,
@@ -274,11 +274,11 @@ async def process_data(
 
                 await db.connect()
                 process_id = await service.data_process_service.save_data_process(data_process=data_process)
-                await service.token_service.save_used_token(token_used, userId, process_id)
-                await  service.token_service.update_user_ai_tokens(user_id=userId, token=token_used)
+                await service.token_service.save_used_token(token_used, user_id, process_id)
+                await  service.token_service.update_user_ai_tokens(user_id=user_id, token=token_used)
                 payload_model = DataProcess(
                     id=process_id,
-                    user_id=userId,
+                    user_id=user_id,
                     prompt=prompt.get_instructions(),
                     image_url=base_64_img,
                     ai_generated_text=ai_generated_response,
@@ -306,12 +306,12 @@ async def process_data(
 
 @router.post("/get_process_data")
 async def get_process_data(
-        userId: str = Body(...),
+        user_id: str = Body(...),
         ai_request_type: Optional[AiRequestType] = Body(None)
 ):
     try:
         await  db.connect()
-        process_data_list = await service.data_process_service.get_data_process(userId, ai_request_type)
+        process_data_list = await service.data_process_service.get_data_process(user_id, ai_request_type)
         if not process_data_list:
             return {
                 'success': True,
@@ -335,10 +335,12 @@ async def get_process_data(
 
 
 @router.post("/get_hospitals")
-async def get_nearby_hospital(user_id: str = Body(...)):
+async def get_hospitals(user_id: str = Body(...),
+                        city: Optional[str] = Body(None),
+                        lat_lng: Optional[str] = Body(None)):
     try:
         await db.connect()
-        data = service.hospital_service.get_hospitals(user_id)
+        data = await  service.hospital_service.get_hospitals(user_id, city, lat_lng)
         if not data:
             return {
                 'success': True,
@@ -405,13 +407,13 @@ async def get_hospitals_value():
 
 
 @router.post("/add_doctor")
-async def add_hospital(doctor: DoctorRequest):
+async def add_doctor(doctor: DoctorRequest):
     try:
         await db.connect()
         await service.doctor_service.add_doctor(doctor)
         return {
             'success': True,
-            'data': {doctor},
+            'data': {'doctor': doctor},
             'message': 'Successful'
         }
     except Exception as e:
@@ -425,7 +427,7 @@ async def add_hospital(doctor: DoctorRequest):
         await db.close()
 
 
-@router.get("/get_doctors/{doctor_id}")
+@router.get("/get_doctor/{doctor_id}")
 async def get_doctor(doctor_id: str):
     try:
         await db.connect()
@@ -720,7 +722,7 @@ async def get_departments():
 async def medical_specialities():
     try:
         await db.connect()
-        specialities = await service.medical_speciality_service.get_medical_specialities();
+        specialities = await service.medical_speciality_service.get_medical_specialities()
         if specialities:
             return {
                 'success': True,

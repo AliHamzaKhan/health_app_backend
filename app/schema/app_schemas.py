@@ -113,26 +113,35 @@ SELECT id, user_id, prompt, image_url, ai_generated_text, request_type, token_us
 
 CREATE_DOCTOR_SCHEMA = """
 CREATE TABLE IF NOT EXISTS doctors (
-                id VARCHAR(250) PRIMARY KEY,
-                name VARCHAR(100),
-                email VARCHAR(100),
-                degree VARCHAR(100),
-                age VARCHAR(100),
-                phone_no VARCHAR(100),
-                gender VARCHAR(100),
-                address VARCHAR(100),
-                hospitals VARCHAR(100),
-                specialization VARCHAR(100),
-                experience VARCHAR(100),
-                image VARCHAR(100),
-                availability VARCHAR(100),
-            )
+    id VARCHAR(250) PRIMARY KEY,
+    name VARCHAR(100),
+    email VARCHAR(100),
+    degree VARCHAR(100),
+    age VARCHAR(100),
+    phone_no VARCHAR(100),
+    gender VARCHAR(100),
+    address VARCHAR(100),
+    experience VARCHAR(100),
+    image VARCHAR(100),
+    availability VARCHAR(100)
+)
 """
 
 INSERT_DOCTOR_SCHEME = """
-INSERT INTO doctors (id, name, email, degree, age, phone_no, gender, address, hospitals, specialization, 
-                                experience, image, availability)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+INSERT INTO doctors (id, name, email, degree, age, phone_no, gender, address,
+                     experience, image, availability)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    email = EXCLUDED.email,
+    degree = EXCLUDED.degree,
+    age = EXCLUDED.age,
+    phone_no = EXCLUDED.phone_no,
+    gender = EXCLUDED.gender,
+    address = EXCLUDED.address,
+    experience = EXCLUDED.experience,
+    image = EXCLUDED.image,
+    availability = EXCLUDED.availability;
 """
 
 FIND_DOCTOR_SPECIALITY_SCHEMA = """
@@ -162,10 +171,9 @@ CREATE_HOSPITAL_SCHEME = """
            name VARCHAR(100),
            address TEXT,
            phone_number VARCHAR(15),
-           email VARCHAR(100) UNIQUE,
+           email VARCHAR(100),
            website VARCHAR(100),
            type VARCHAR(50),
-           departments TEXT[],  -- Array of strings
            latlng VARCHAR(50),
            img TEXT,
            staff_count INT
@@ -173,20 +181,41 @@ CREATE_HOSPITAL_SCHEME = """
 """
 
 INSERT_HOSPITAL_SCHEMA = """
-INSERT INTO hospitals (id, name, address, phone_number, email, website, type, departments, latlng, img, staff_count)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-       ON CONFLICT (email) DO UPDATE SET
-           id = EXCLUDED.id,
-           name = EXCLUDED.name,
-           address = EXCLUDED.address,
-           phone_number = EXCLUDED.phone_number,
-           website = EXCLUDED.website,
-           type = EXCLUDED.type,
-           departments = EXCLUDED.departments,
-           latlng = EXCLUDED.latlng,
-           img = EXCLUDED.img,
-           staff_count = EXCLUDED.staff_count;
+INSERT INTO hospitals (id, name, address, phone_number, email, website, type, latlng, img, staff_count)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    address = EXCLUDED.address,
+    phone_number = EXCLUDED.phone_number,
+    email = EXCLUDED.email,
+    website = EXCLUDED.website,
+    type = EXCLUDED.type,
+    latlng = EXCLUDED.latlng,
+    img = EXCLUDED.img,
+    staff_count = EXCLUDED.staff_count;
 """
+
+FIND_HOSPITALS_SCHEMA = """
+        SELECT 
+            hospitals.id AS hospital_id,
+            hospitals.name,
+            hospitals.address,
+            hospitals.phone_number,
+            hospitals.email,
+            hospitals.website,
+            hospitals.type,
+            hospitals.latlng,
+            hospitals.img,
+            hospitals.staff_count,
+            COALESCE(ARRAY_AGG(departments.department_id) FILTER (WHERE departments.department_id IS NOT NULL), ARRAY[]::INT[]) AS departments
+        FROM 
+            hospitals
+        LEFT JOIN 
+            hospital_departments ON hospitals.id = hospital_departments.hospital_id
+        LEFT JOIN 
+            departments ON hospital_departments.department_id = departments.department_id
+        GROUP BY 
+            hospitals.id;"""
 
 FIND_HOSPITAL_IN_CITY_SCHEMA = """
 SELECT * FROM hospitals WHERE city = $1
